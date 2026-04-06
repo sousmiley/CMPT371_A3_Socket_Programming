@@ -10,6 +10,7 @@ https://stackoverflow.com/questions/42222425/python-sockets-multiple-messages-on
 import socket
 import threading
 import tkinter as tk
+from tkinter import messagebox
 
 HOST = '127.0.0.1'
 PORT = 5050
@@ -83,6 +84,11 @@ class Crossword:
         # Clue display
         self.clue_label = tk.Label(self.root, text="Select a row to see clue", fg="blue")
         self.clue_label.grid(row=SIZE + 2, column=0, columnspan=SIZE)
+    
+    def update_clue(self):
+        if self.selected_row is not None:
+            clue_text = self.clues[self.selected_row]
+            self.clue_label.config(text=f"Clue: {clue_text}")
 
     def select_cell(self, row, col):
         self.selected_row = row
@@ -124,7 +130,7 @@ class Crossword:
             return
 
         try:
-            message = f"MOVE {self.selected_row} {self.selected_col} {letter}\n"
+            message = f"GUESS {self.selected_row} {self.selected_col} {letter}\n"
             self.client.send(message.encode())
             # clear input box after sending
             self.entry.delete(0, tk.END)
@@ -146,9 +152,33 @@ class Crossword:
                 # handle multiple messages
                 messages = data.strip().split("\n")
                 for msg in messages:
-                    # TODO: fix the logic here, implemented roughly
                     if msg.startswith("WELCOME"):
                         print("Received WELCOME")
+                        parts = msg.split()
+                        if len(parts) >= 2:
+                            player_number_string = parts[1]   # get the second part
+                            self.player_num = int(player_number_string)  # convert to integer
+                            # Determine if it's this player's turn
+                            if self.player_num == 1:
+                                # Player 1 always starts first
+                                self.my_turn = True
+                            else:
+                                self.my_turn = False
+                            # Update UI to reflect player + turn
+                            self.update_status()
+                        else:
+                            print("ERROR: Incorrect formatted WELCOME message :", msg)
+
+                    
+                    elif msg.startswith("START"):
+                        self.status_label.config(text=f"Game started! You are Player {self.player_num}")
+                        self.update_status()
+                    
+                    # TODO: implement clues properly, doesn't show down clues seperately
+                    elif msg.startswith("CLUES"):
+                        _, clues_str = msg.split(maxsplit=1)
+                        self.clues = clues_str.split("|")
+                        self.update_clue()
 
                     elif msg.startswith("UPDATE"):
                         parts = msg.split()
@@ -162,13 +192,37 @@ class Crossword:
                         self.my_turn = (turn_player == self.player_num)
                         self.update_status()
 
-                    # TODO: implement clues properly
-                    elif "CLUES" in msg:
-                        print("Received clues (not implemented yet)")
+                    elif msg.startswith("GAME_END"):
+                        print("Received Game over")
+                        parts = msg.split()
+                        if len(parts) >= 3:
+                            score1_str = parts[1] # get score1 as string
+                            score2_str = parts[2] # get score2 as string
 
-                    # TODO: deal with game over
-                    elif msg.startswith("GAME_OVER"):
-                        print("Game over received")
+                            # Convert scores from str -> int
+                            score1 = int(score1_str)
+                            score2 = int(score2_str)
+
+                            if score1 > score2:
+                                winner = "Player 1"
+                            elif score2 > score1:
+                                winner = "Player 2"
+                            else:
+                                winner = "Tie"
+
+                            # TODO: Ipmrove the results popup window
+                            messagebox.showinfo(
+                                "Game Over!",
+                                "Scores:\n"
+                                + "Player 1: " + str(score1) + "\n"
+                                + "Player 2: " + str(score2) + "\n"
+                                + "Winner: " + winner + ", congrats!"
+                            )
+                            # TODO : Game doesn't close after user closes game over window
+                            self.root.destroy() 
+
+                        else:
+                            print("WARNING: Incorrect formatted GAME_END message :", msg)
 
             except Exception as e:
                 print("Error:", e)
