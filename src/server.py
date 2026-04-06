@@ -7,7 +7,6 @@ Socket boilerplate adapted from "TCP Echo Server" tutorial.
 
 import socket
 import threading
-import json
 
 # Server configuration
 HOST = '127.0.0.1'
@@ -50,8 +49,8 @@ def game_session(conn_p1, conn_p2):
     """
     # Protocol: Assign roles using the "WELCOME" message.
     # Note: \n is appended to act as a TCP message boundary.
-    conn_p1.sendall("WELCOME PLAYER 1\n".encode())
-    conn_p1.sendall("WELCOME PLAYER 2\n".encode())
+    conn_p1.sendall("WELCOME 1\n".encode())
+    conn_p2.sendall("WELCOME 2\n".encode())
     
     # Initialize the game state
     grid = []
@@ -78,7 +77,8 @@ def game_session(conn_p1, conn_p2):
         conn_p1.sendall((msg + "\n").encode())
         conn_p2.sendall((msg + "\n").encode())
     
-    broadcast_message(f"START")
+    broadcast_message("START")
+    broadcast_message("TURN 1")
 
     # Map roles to their respective socket objects
     sockets = {1: conn_p1, 2: conn_p2}
@@ -86,8 +86,11 @@ def game_session(conn_p1, conn_p2):
     while True:
         active_socket = sockets[turn]
         # Block and wait for the active player to send their move
-        data = active_socket.recv(1024).decode('utf-8')
-        if not data:
+        try:
+            data = active_socket.recv(1024).decode('utf-8')
+        except ConnectionResetError:
+            # If client crashes
+            print("Client disconnected unexpectedly")
             break
         
         # If multiple messages arrive buffered together in the TCP stream, 
