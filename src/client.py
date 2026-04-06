@@ -126,6 +126,8 @@ class Crossword:
         try:
             message = f"MOVE {self.selected_row} {self.selected_col} {letter}\n"
             self.client.send(message.encode())
+            # clear input box after sending
+            self.entry.delete(0, tk.END)
 
         except:
             self.status_label.config(text = "Failed to send move")
