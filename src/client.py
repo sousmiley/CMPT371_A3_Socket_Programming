@@ -37,7 +37,7 @@ class Crossword:
         self.selected_row = None
         self.selected_col = None
         # TODO : present clues
-        self.clues = ["Loading Clue..."] *SIZE
+        self.clues = [""] *SIZE
         #tkinter vars
         self.root = tk.Tk()
         self.root.title("Multiplayer Crossword!")
@@ -58,24 +58,25 @@ class Crossword:
                 btn = tk.Button(
                     self.root,
                     text = EMPTY,
-                    width = 4,
+                    width = SIZE,
                     height = 2,
                     font = ("Arial", 16),
                     command = lambda r= row, c= col: self.select_cell(r, c)
                 )
 
-                btn.grid(row= row, column= col, padx= 2, pady = 2 )
+                btn.grid(row= row, column= col, padx= SIZE, pady = SIZE)
                 current_row.append(btn)
             self.grid_buttons.append(current_row)
 
     def build_controls(self):
+        # TODO : Center input box and subit button
         # Input box
         self.entry = tk.Entry(self.root)
         self.entry.grid(row=SIZE, column=0, columnspan=2, pady=10)
 
         # Submit button
         self.submit_btn = tk.Button(self.root, text="Submit Letter", command=self.send_move)
-        self.submit_btn.grid(row=SIZE, column=2, columnspan=2)
+        self.submit_btn.grid(row=SIZE, column=2, columnspan=2, pady=10)
 
         # Status label
         self.status_label = tk.Label(self.root, text="Waiting for game...")
