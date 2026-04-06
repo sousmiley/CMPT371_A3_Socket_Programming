@@ -13,6 +13,7 @@ HOST = '127.0.0.1'
 PORT = 5050
 # If 5050 doesn't work, try 5555
 SIZE = 5
+NUM_PLAYERS = 2
 EMPTY ='_'
 # Matchmaking Queue: Temporarily holds connected client sockets until 
 # two players are available to form a GameSession.
@@ -169,7 +170,7 @@ def start_server():
             conn.sendall("CONNECTED\n".encode())
             if "CONNECT" in data:
                 matchmaking_queue.append(conn)
-                print(f"[QUEUE] Player added. Waiting # of players : {len(matchmaking_queue)}")
+                print(f"[QUEUE] Player added. Waiting # of players : {NUM_PLAYERS - len(matchmaking_queue)}")
                 
                 # Session Management: When 2 players are queued, match them up
                 if len(matchmaking_queue) >= 2:
