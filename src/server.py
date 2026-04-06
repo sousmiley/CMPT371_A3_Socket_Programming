@@ -42,18 +42,6 @@ crossword_clues = [
 #     Enforces the "Single Source of Truth" rule: the server calculates wins 
 #     so clients cannot cheat by modifying their local memory.
 #     """
-#     # Check rows and columns for a match
-#     for i in range(3):
-#         if board[i][0] == board[i][1] == board[i][2] != ' ': return board[i][0]
-#         if board[0][i] == board[1][i] == board[2][i] != ' ': return board[0][i]
-
-#     # Check diagonals
-#     if board[0][0] == board[1][1] == board[2][2] != ' ': return board[0][0]
-#     if board[0][2] == board[1][1] == board[2][0] != ' ': return board[0][2]
-
-#     # Check for a draw (no empty spaces left)
-#     if all(cell != ' ' for row in board for cell in row): return 'Draw'
-#     return None
 
 def game_session(conn_p1, conn_p2):
     """
@@ -62,11 +50,10 @@ def game_session(conn_p1, conn_p2):
     """
     # Protocol: Assign roles using the "WELCOME" message.
     # Note: \n is appended to act as a TCP message boundary.
-    conn_p1.sendall((json.dumps({"type": "WELCOME", "payload": "Player 1"}) + '\n').encode('utf-8'))
-    conn_p2.sendall((json.dumps({"type": "WELCOME", "payload": "Player 2"}) + '\n').encode('utf-8'))
+    conn_p1.sendall("WELCOME PLAYER 1\n".encode())
+    conn_p1.sendall("WELCOME PLAYER 2\n".encode())
     
     # Initialize the game state
-    # board = [[' ', ' ', ' '], [' ', ' ', ' '], [' ', ' ', ' ']]
     grid = []
     for row in range(SIZE):
         current_row = []
@@ -78,18 +65,21 @@ def game_session(conn_p1, conn_p2):
     scores[1] = 0
     scores[2] = 0
 
-    turn = 1
+    turn = 1 # Player 1 goes first
     
-    # Broadcast initial empty board to both players
-    crossword_clues_msg = json.dumps({"type": "CLUES", "grid": grid, "turn": turn, "status": "ongoing"}) + "|".join(crossword_clues) + "\n"
-    # crossword_clues_msg = "crossword_clues " + "|".join(crossword_clues) + "\n"
+    # Broadcast clues to both players
+    crossword_clues_msg = "CLUES  " + "|".join(crossword_clues) + "\n"
 
-    # TODO: create a seperate function to send out messages since it's use so frequently
     conn_p1.sendall(crossword_clues_msg.encode('utf-8'))
     conn_p2.sendall(crossword_clues_msg.encode('utf-8'))
 
-    # Start game message to conn_p1 and conn_p2?
+    # Encapsulate message send outs into broadcast function since it's use so frequently
+    def broadcast_message(msg):
+        conn_p1.sendall((msg + "\n").encode())
+        conn_p2.sendall((msg + "\n").encode())
     
+    broadcast_message(f"START")
+
     # Map roles to their respective socket objects
     sockets = {1: conn_p1, 2: conn_p2}
     
@@ -105,8 +95,9 @@ def game_session(conn_p1, conn_p2):
         message = data.strip().split('\n')[0]
         msg = message.split()
         
-        # Protocol: Process the "MOVE" action
-        if msg[0] == "MOVE":
+        # Protocol: Process the "GUESS" action
+        if msg[0] == "GUESS":
+            # This matches the : {“type”: “GUESS”, “row”: 1, “col”: 2, “letter”: “A”}
             row, col, letter = int(msg[1]), int(msg[2]), msg[3].upper()
             # Update authoritative state
             if grid[row][col] != EMPTY:
@@ -120,8 +111,8 @@ def game_session(conn_p1, conn_p2):
                 scores[turn] += 1
 
                 # update both players
-                conn_p1.sendall((f"UPDATE {row} {col} {letter}" + "\n").encode())
-                conn_p2.sendall((f"UPDATE {row} {col} {letter}" + "\n").encode())
+                # {“type”: “UPDATE”, “row”: 1, “col”: 2, “letter”: A}
+                broadcast_message(f"UPDATE {row} {col} {letter}")
 
                 # Check for game status, are there empty cells 
                 #           or is grid complete (aka game over)
@@ -137,8 +128,7 @@ def game_session(conn_p1, conn_p2):
 
                 # if grid has no empty cells, the game is finhised
                 if all_filled:
-                    conn_p1.sendall((f"GAME_OVER {scores[1]} {scores[2]}" + "\n").encode())
-                    conn_p2.sendall((f"GAME_OVER {scores[1]} {scores[2]}" + "\n").encode())
+                    broadcast_message(f"GAME_END {scores[1]} {scores[2]}")
                     break
 
                 # switch player's turns
@@ -146,12 +136,11 @@ def game_session(conn_p1, conn_p2):
                     turn = 2
                 else: # p2->p1
                     turn = 1
-                conn_p1.sendall((f"TURN {turn}" + "\n").encode())
-                conn_p2.sendall((f"TURN {turn}" + "\n").encode())
+                broadcast_message(f"TURN {turn}")
             else :
-                active_socket.sendall("INVALID! Wrong letter\n".encode())
+                active_socket.sendall("ERROR Invalid Move! Try again\n".encode())
     # Safely close the sockets when the session ends
-    print("Closing sockets safely, session has ended")
+    print("SESSION END Closing sockets safely, session has ended")
     conn_p1.close()
     conn_p2.close()
 
@@ -164,7 +153,7 @@ def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
     server.listen()
-    print(f"[STARTING] Server is listening on {HOST}:{PORT}")
+    print(f"[START] Server is listening on {HOST}:{PORT}")
     
     try:
         while True:
@@ -174,7 +163,7 @@ def start_server():
             data = conn.recv(1024).decode('utf-8')
             
             # Protocol: Check for the initial "CONNECT" handshake
-            # TODO : show handshaking
+            conn.sendall("CONNECTED\n".encode())
             if "CONNECT" in data:
                 matchmaking_queue.append(conn)
                 print(f"[QUEUE] Player added. Waiting # of players : {len(matchmaking_queue)}")
@@ -184,7 +173,7 @@ def start_server():
                     player_1 = matchmaking_queue.pop(0)
                     player_2 = matchmaking_queue.pop(0)
                     # Spawn an isolated GameSession thread for the matched pair
-                    print("[MATCH] 2 Players found. Spawning GameSession thread.")
+                    print("[MATCH] 2 Players found. Starting new game session.")
                     threading.Thread(target=game_session, args=(player_1, player_2)).start()
     except KeyboardInterrupt:
         # Graceful shutdown on Ctrl+C
