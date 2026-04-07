@@ -23,6 +23,7 @@ EMPTY = '_'
 
 class Crossword:
     def send_json(self, data):
+        self.client.sendall((json.dumps(data) + "\n").encode())
 
     def __init__(self):
         # intialize the client by:
