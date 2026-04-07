@@ -168,17 +168,29 @@ def start_server():
             
             # Protocol: Check for the initial "CONNECT" handshake
             conn.sendall("CONNECTED\n".encode())
-            if "CONNECT" in data:
-                matchmaking_queue.append(conn)
-                print(f"[QUEUE] Player added. Waiting # of players : {NUM_PLAYERS - len(matchmaking_queue)}")
-                
-                # Session Management: When 2 players are queued, match them up
-                if len(matchmaking_queue) >= 2:
-                    player_1 = matchmaking_queue.pop(0)
-                    player_2 = matchmaking_queue.pop(0)
-                    # Spawn an isolated GameSession thread for the matched pair
-                    print("[MATCH] 2 Players found. Starting new game session.")
-                    threading.Thread(target=game_session, args=(player_1, player_2)).start()
+
+            try:
+                if "CONNECT" in data:
+                    matchmaking_queue.append(conn)
+                    print(f"[QUEUE] Player added. Waiting # of players : {NUM_PLAYERS - len(matchmaking_queue)}")
+
+                    #Protocol: "WAIT" for opponent when only 1 player is in the queue
+                    if len(matchmaking_queue) == 1:
+                        conn.sendall("WAIT\n".encode())
+                    
+                    # Session Management: When 2 players are queued, match them up
+                    if len(matchmaking_queue) >= 2:
+                        player_1 = matchmaking_queue.pop(0)
+                        player_2 = matchmaking_queue.pop(0)
+                        # Spawn an isolated GameSession thread for the matched pair
+                        print("[MATCH] 2 Players found. Starting new game session.")
+                        threading.Thread(target=game_session, args=(player_1, player_2)).start()
+                else:
+                    raise ValueError("ERROR! Wrong type. Require CONNECT to start the session.")
+            except Exception:
+                # Send error when it's not CONNECTED
+                conn.sendall("ERROR! Invalid handshake\n".encode())
+                conn.close()
     except KeyboardInterrupt:
         # Graceful shutdown on Ctrl+C
         print("\n[SHUTDOWN] Server closing...")

@@ -7,6 +7,7 @@ https://docs.python.org/3/library/threading.html
 https://stackoverflow.com/questions/42222425/python-sockets-multiple-messages-on-same-connection
 """
 
+import json
 import socket
 import threading
 import tkinter as tk
@@ -25,10 +26,9 @@ class Crossword:
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.client.connect((HOST, PORT))
-            # TODO: a proper handshake
-            self.client.send("CONNECT\n".encode())
-        except:
-            print("Unable to connect to server")
+            self.client.sendall("CONNECT\n".encode())
+        except Exception as e:
+            print("Unable to connect to server ", e)
             return
         
         # game vars
@@ -144,8 +144,6 @@ class Crossword:
             try:
                 # Await data broadcasted from the GameSession server thread
                 data = self.client.recv(1024).decode()
-                if not data:
-                    continue
 
                 # TCP STREAM BUFFERING FIX:
                 # OS-level TCP buffers might combine multiple JSON packets into one string.
@@ -153,7 +151,17 @@ class Crossword:
                 # handle multiple messages
                 messages = data.strip().split("\n")
                 for msg in messages:
-                    if msg.startswith("WELCOME"):
+                    if not msg: break
+
+                    #Deserialize the JSON packet
+                    # msg = json.loads(msg)
+                    
+                    # Action: Waiting for another opponent to join
+                    if msg.startswith("WAIT"):
+                        self.status_label.config(text=f"Connected! Waiting for opponents to join...")
+
+                    # Action: Initial Role Assignment
+                    elif msg.startswith("WELCOME"):
                         print("Received WELCOME")
                         parts = msg.split()
                         if len(parts) >= 2:
@@ -170,17 +178,19 @@ class Crossword:
                         else:
                             print("ERROR: Incorrect formatted WELCOME message :", msg)
 
-                    
+                    # Action: Game Start
                     elif msg.startswith("START"):
                         self.status_label.config(text=f"Game started! You are Player {self.player_num}")
                         self.update_status()
                     
+                    # Action: Show clues
                     # TODO: implement clues properly, doesn't show down clues seperately
                     elif msg.startswith("CLUES"):
                         _, clues_str = msg.split(maxsplit=1)
                         self.clues = clues_str.split("|")
                         self.update_clue()
 
+                    # Action: Game state Update
                     elif msg.startswith("UPDATE"):
                         parts = msg.split()
                         row = int(parts[1])
@@ -188,11 +198,13 @@ class Crossword:
                         letter = parts[3]
                         self.grid_buttons[row][col].config(text = letter)
 
+                    # Action: Change turn and update who turn it is
                     elif msg.startswith("TURN"):
                         turn_player = int(msg.split()[1])
                         self.my_turn = (turn_player == self.player_num)
                         self.update_status()
 
+                    # Action: Game end and notify users
                     elif msg.startswith("GAME_END"):
                         print("Received Game over")
                         parts = msg.split()
