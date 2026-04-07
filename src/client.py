@@ -118,17 +118,20 @@ class Crossword:
             )
 
     def send_move(self):
-        # TODO: improve checking (only one letter should be allowed)
         if not self.my_turn:
             self.status_label.config(text="Not your turn!")
             return
 
-        if self.selected_row is None:
+        if self.selected_row is None or self.selected_col is None:
             return
 
+        #Check if it's only 1 character and letter only
         letter = self.entry.get().upper()
-        if letter == "": # empty
+        if len(letter) > 1 or not letter.isalpha() or letter == "":
+            self.status_label.config(text="Invalid guess! Please type only 1 letter")
             return
+    
+        print("INSIDE send_move: ", letter)
 
         try:
             message = f"GUESS {self.selected_row} {self.selected_col} {letter}\n"
@@ -192,6 +195,7 @@ class Crossword:
 
                     # Action: Game state Update
                     elif msg.startswith("UPDATE"):
+                        print("INSIDE UPDATE")
                         parts = msg.split()
                         row = int(parts[1])
                         col = int(parts[2])
