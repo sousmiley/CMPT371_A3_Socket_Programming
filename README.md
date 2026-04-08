@@ -37,14 +37,16 @@ As required by the project specifications, we have identified and handled (or de
 
 ## **3\. Video Demo**
 
+<span style="color: purple;">**_RUBRIC NOTE: Include a clickable link._**</span>  
+
 Our 2-minute video demonstration covering connection establishment, data exchange, real-time gameplay, and process termination can be viewed below:  
-[**▶️ Watch Project Demo on YouTube**](https://drive.google.com/file/d/1SX3e5i3Sqg7BRqfhs6-HHow1NJzrePf9/view)
+[**▶️ Watch Project Demo**](https://drive.google.com/file/d/1SX3e5i3Sqg7BRqfhs6-HHow1NJzrePf9/view)
 
 ## **4\. Prerequisites (Fresh Environment)**
 
 To run this project, you need:
 
-- **Python 3.10** or higher.
+- **Python 3.9** or higher.
 - No external pip installations are required (uses standard socket, threading, json, sys libraries).
 - (Optional) VS Code or Terminal.
 
@@ -106,6 +108,8 @@ We designed a custom application-layer protocol for data exchange usin JSON over
   - When their opponent disconnects unexpectedly: `{"type": "DISCONNECTED", "message": "Opponent disconnected!"}`
 
 ## **6\. Academic Integrity & References**
+
+<span style="color: purple;">**_RUBRIC NOTE: List all references used and help you got._**</span>
 
 - **Code Origin:**
   - The socket boilerplate was adapted from the course tutorial "TCP Echo Server". The core multithreaded game logic, protocol, and state management were written by the group.
