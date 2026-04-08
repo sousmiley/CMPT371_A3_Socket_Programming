@@ -75,12 +75,12 @@ def game_session(conn_p1, conn_p2):
     conn_p2.sendall(crossword_clues_msg.encode('utf-8'))
 
     # Encapsulate message send outs into broadcast function since it's use so frequently
-    def broadcast_message(msg):
-        conn_p1.sendall((msg + "\n").encode())
-        conn_p2.sendall((msg + "\n").encode())
+    def broadcast_message(msg: dict):
+        conn_p1.sendall((json.dumps(msg) + "\n").encode('utf-8'))
+        conn_p2.sendall((json.dumps(msg) + "\n").encode('utf-8'))
     
-    broadcast_message(json.dumps({"type": "START"}))
-    broadcast_message(json.dumps({"type": "TURN", "player": 1}))
+    broadcast_message({"type": "START"})
+    broadcast_message({"type": "TURN", "player": 1})
 
     # Map roles to their respective socket objects
     sockets = {1: conn_p1, 2: conn_p2}
@@ -121,7 +121,7 @@ def game_session(conn_p1, conn_p2):
                 broadcast_message({"type": "UPDATE", "row": row, "col": col, "letter": letter})
             else:
                 # Notify users if they guess wrong
-                broadcast_message()
+                broadcast_message({"type": "INVALID", "message": "Invalid guess! Try again"})
 
             # Check for game status, are there empty cells 
             #           or is grid complete (aka game over)
@@ -137,7 +137,7 @@ def game_session(conn_p1, conn_p2):
 
             # if grid has no empty cells, the game is finished
             if all_filled:
-                broadcast_message(json.dumps({"type": "GAME_END", "player1_score": scores[1], "player2_score": scores[2]}) + '\n')
+                broadcast_message({"type": "GAME_END", "player1_score": scores[1], "player2_score": scores[2]})
                 break
 
             # switch player's turns
@@ -145,7 +145,7 @@ def game_session(conn_p1, conn_p2):
                 turn = 2
             else: # p2->p1
                 turn = 1
-            broadcast_message(f"TURN {turn}")
+            broadcast_message({"type": "TURN", "player": turn})
         else :
             active_socket.sendall("ERROR Invalid Move! Try again\n".encode())
     # Safely close the sockets when the session ends
