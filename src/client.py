@@ -169,20 +169,6 @@ class Crossword:
                         self.player_num = int(msg["player"])
                         self.my_turn = (self.player_num == 1)
                         self.update_status()
-                        # parts = msg.split()
-                        # if len(parts) >= 2:
-                        #     player_number_string = parts[1]   # get the second part
-                        #     self.player_num = int(player_number_string)  # convert to integer
-                        #     # Determine if it's this player's turn
-                        #     if self.player_num == 1:
-                        #         # Player 1 always starts first
-                        #         self.my_turn = True
-                        #     else:
-                        #         self.my_turn = False
-                        #     # Update UI to reflect player + turn
-                        #     self.update_status()
-                        # else:
-                        #     print("ERROR: Incorrect formatted WELCOME message :", msg)
 
                     # Action: Game Start
                     elif msg["type"] == "START":

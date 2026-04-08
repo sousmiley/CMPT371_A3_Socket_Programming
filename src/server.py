@@ -100,9 +100,9 @@ def game_session(conn_p1, conn_p2):
         message = data.strip().split('\n')[0]
         msg = json.loads(message)
         
-        # Protocol: Process the "GUESS" action
+        # Protocol: Process the "UPDATE" action
         if msg['type'] == "UPDATE":
-            # This matches the : {“type”: “GUESS”, “row”: 1, “col”: 2, “letter”: “A”}
+            # This matches the : {“type”: "UPDATE", “row”: 1, “col”: 2, “letter”: “A”}
             row, col, letter = int(msg['row']), int(msg['col']), msg['letter'].upper()
             # Update authoritative state
             if grid[row][col] != EMPTY:
@@ -117,7 +117,7 @@ def game_session(conn_p1, conn_p2):
                 scores[turn] += 1
 
                 # update both players
-                # {“type”: “UPDATE”, “row”: 1, “col”: 2, “letter”: A} --> f"GUESS {row} {col} {letter}"
+                # {“type”: “UPDATE”, “row”: 1, “col”: 2, “letter”: A}
                 broadcast_message({"type": "UPDATE", "row": row, "col": col, "letter": letter})
             else:
                 # Notify users if they guess wrong
@@ -136,7 +136,6 @@ def game_session(conn_p1, conn_p2):
                     break                  # stop checking the grid
 
             # if grid has no empty cells, the game is finished
-            # f"GAME_END {scores[1]} {scores[2]}"
             if all_filled:
                 broadcast_message(json.dumps({"type": "GAME_END", "player1_score": scores[1], "player2_score": scores[2]}) + '\n')
                 break
