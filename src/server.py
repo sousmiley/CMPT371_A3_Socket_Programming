@@ -96,7 +96,7 @@ def game_session(conn_p1, conn_p2):
 
     turn = 1 # Player 1 goes first
     
-    for msg in [conn_p1,conn_p2]:
+    for conn in [conn_p1,conn_p2]:
         if not send(conn, {"type": "CLUES", "clues": crossword_clues}):
             return
         if not send(conn, {"type": "START"}):
