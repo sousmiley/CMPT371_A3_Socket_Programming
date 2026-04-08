@@ -265,7 +265,7 @@ class Crossword:
                     
                     # Action: Game ended. Display score.
                     elif msg["type"] == "GAME_END":
-                        print("Received Game over")
+                        print("Received Game end")
                         score1 = msg["scores"]["1"]
                         score2 = msg["scores"]["2"]
                         if score1 > score2:
@@ -288,7 +288,6 @@ class Crossword:
 
         # Close the connect and destroy the window
         self.client.close()
-        self.root.destroy() 
 
 if __name__ == "__main__":
     Crossword()

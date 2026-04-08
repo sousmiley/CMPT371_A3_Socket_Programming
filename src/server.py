@@ -113,7 +113,7 @@ def game_session(conn_p1, conn_p2):
         if not send(conn, {"type": "START"}):
             return
     
-    # Protocol: Tell both players whose turn it is
+    # Protocol: Tell both players it's Player 1's turn
     send(conn_p1, {"type" : "TURN", "player":1})
     send(conn_p2, {"type" : "TURN", "player":1})
 
