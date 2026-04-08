@@ -43,7 +43,8 @@ class Crossword:
         self.my_turn = False
         self.selected_row = None
         self.selected_col = None
-        self.clues = [""] *SIZE
+        self.clues_across = [""]* SIZE
+        self.clues_down = [""]* SIZE
         #tkinter vars
         self.root = tk.Tk()
         self.root.title("Multiplayer Crossword!")
@@ -111,9 +112,13 @@ class Crossword:
         self.clue_label.grid(row=SIZE + 2, column=0, columnspan=SIZE)
     
     def update_clue(self):
-        if self.selected_row is not None:
-            clue_text = self.clues[self.selected_row]
-            self.clue_label.config(text=f"Clue: {clue_text}")
+        if self.selected_row is not None and self.selected_col is not None:
+            across = self.clues_across[self.selected_row]
+            down = self.clues_down[self.selected_col]
+
+            self.clue_label.config(
+                text = f"Across: {across} | Down: {down}"
+            )
 
     def select_cell(self, row, col):
         self.selected_row = row
@@ -196,7 +201,8 @@ class Crossword:
                     # Action: Show clues
                     # TODO: implement clues properly, doesn't show down clues seperately
                     elif msg["type"] == "CLUES":
-                        self.clues = msg["clues"]
+                        self.clues_across = msg["across"]
+                        self.clues_down = msg["down"]
                         self.update_clue()
 
                     elif msg["type"] == "UPDATE":

@@ -28,13 +28,20 @@ crossword_sol = [
     ['F','O','U','L','S']
 ]
 
-# TODO: Clues need to show up serperately for down 
-crossword_clues = [
-    "ACROSS: Not to. DOWN: Disdain",
-    "ACROSS: Aromatic wood. DOWN: Hi",
-    "ACROSS: Oil. DOWN: Bye",
-    "ACROSS: Itchy dog. DOWN: Belly button",
-    "ACROSS: Basketball offenses. DOWN: Long locks"
+crossword_clues_across = [
+    "Not to",
+    "Aromatic wood",
+    "Oil",
+    "Itchy dog",
+    "Basketball offenses"
+]
+
+crossword_clues_down = [
+    "Disdain",
+    "Hi",
+    "Bye",
+    "Belly button",
+    "Long locks"
 ]
 
 def send(conn, data):
@@ -96,8 +103,12 @@ def game_session(conn_p1, conn_p2):
 
     turn = 1 # Player 1 goes first
     
-    for conn in [conn_p1,conn_p2]:
-        if not send(conn, {"type": "CLUES", "clues": crossword_clues}):
+    for conn in [conn_p1, conn_p2]:
+        if not send(conn, {
+            "type": "CLUES",
+            "across": crossword_clues_across,
+            "down": crossword_clues_down
+        }):
             return
         if not send(conn, {"type": "START"}):
             return
