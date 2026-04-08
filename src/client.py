@@ -9,6 +9,7 @@ https://oneuptime.com/blog/post/2026-03-20-json-over-ipv4-sockets-python/view
 https://beej.us/guide/bgnet/html/#close-and-shutdownget-outta-my-face
 """
 
+import json
 import socket
 import threading
 import tkinter as tk
@@ -58,6 +59,7 @@ class Crossword:
         self.root.mainloop()
 
     def on_close(self):
+        self.running = False
         try:
             if self.client:
                 try:
@@ -135,16 +137,20 @@ class Crossword:
             )
 
     def send_move(self):
-        # TODO: improve checking (only one letter should be allowed)
+        # If it's opponent turn, display the text
         if not self.my_turn:
             self.status_label.config(text = "Not your turn!")
             return
 
-        if self.selected_row is None:
+        # If users don't select any cells
+        if self.selected_row is None or self.selected_col is None:
+            self.status_label.config(text="Select a cell first!")
             return
 
+        #Check if it's only 1 character and letter only
         letter = self.entry.get().upper()
-        if letter == "": # empty
+        if len(letter) > 1 or not letter.isalpha() or letter == "":
+            self.status_label.config(text="Invalid guess! Please type only 1 letter")
             return
         
         self.send_json({
@@ -178,14 +184,16 @@ class Crossword:
                     #TODO : encapsulate this if loop logic to a seperate function
                     if msg["type"] == "WELCOME":
                         print("Received WELCOME")
-                        self.player_num = msg["player"]
+                        self.player_num = int(msg["player"])
                         self.my_turn = (self.player_num == 1)
                         self.update_status()
 
+                    # Action: Game Start
                     elif msg["type"] == "START":
                         self.status_label.config(text=f"Game started! You are Player {self.player_num}")
                         self.update_status()
                     
+                    # Action: Show clues
                     # TODO: implement clues properly, doesn't show down clues seperately
                     elif msg["type"] == "CLUES":
                         self.clues = msg["clues"]
@@ -202,6 +210,23 @@ class Crossword:
                     
                     elif msg["type"] == "ERROR":
                         self.status_label.config(text=msg["message"])
+                    
+                    elif msg["type"] == "MESSAGE":
+                        self.status_label.config(text = msg["text"])
+
+                    elif msg["type"] == "DISCONNECTED":
+                        print(msg['message'])
+                        print("Opponent left. Closing game...")
+                        self.running = False
+
+                        # close the socket
+                        try:
+                            self.client.shutdown(socket.SHUT_RDWR)
+                        except:
+                            pass
+                        self.client.close()
+                        self.root.after(0, self.on_close)
+                        return
 
                     elif msg["type"] == "GAME_END":
                         # TODO: Ipmrove the results popup window
@@ -224,6 +249,10 @@ class Crossword:
                 if self.running:  # only report errors if we didn't intentionally close
                     print("Error:", e)
                 break
+
+        # Close the connect and destroy the window
+        self.client.close()
+        self.root.destroy() 
 
 if __name__ == "__main__":
     Crossword()
