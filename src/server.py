@@ -8,7 +8,6 @@ Socket boilerplate adapted from "TCP Echo Server" tutorial.
 import json
 import socket
 import threading
-import json
 
 # Server configuration
 HOST = '127.0.0.1'
@@ -47,6 +46,27 @@ def send(conn, data):
 #     Enforces the "Single Source of Truth" rule: the server calculates wins 
 #     so clients cannot cheat by modifying their local memory.
 #     """
+
+def disconnect_player(turn, sockets):
+    # Find which player left and disconnect
+    if turn == 1:
+        other_turn = 2
+    else:
+        other_turn = 1
+    other_socket = sockets[other_turn]
+
+    # Protocol: Disconnected
+    try:
+        send(other_socket, {
+            "type": "DISCONNECTED",
+            "message": "Opponent disconnected!"
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to notify player {other_turn}, {e}")
+    
+    # Close both sockets
+    for s in sockets.values():
+        s.close()
 
 def game_session(conn_p1, conn_p2):
     """
@@ -87,10 +107,15 @@ def game_session(conn_p1, conn_p2):
         # Block and wait for the active player to send their move
         try:
             data = active_socket.recv(1024).decode('utf-8')
+            if not data: 
+                print(f"[DISCONNECTED] Player {turn} disconnected!")
+                disconnect_player(turn, sockets)
+                return
         except ConnectionResetError:
             # If client crashes
             print("Client disconnected unexpectedly")
-            break
+            disconnect_player(turn, sockets)
+            return
         
         # If multiple messages arrive buffered together in the TCP stream, 
         # we only process the first valid one using the \n boundary.
@@ -106,21 +131,26 @@ def game_session(conn_p1, conn_p2):
                 print(f"[WARNING] Incorrect formatted JSON: {msg_str}")
                 continue
         
-        # Protocol: Process the "GUESS" action
-        if msg["type"] == "GUESS":
-            row, col, letter = msg["row"], msg["col"], msg["letter"]
-            # Update authoritative state
-            if grid[row][col] != EMPTY:
-                continue
-            
-            # If user guesses correctly
-            if crossword_sol[row][col] == letter:
-                grid[row][col] = letter
-                scores[turn] += 1
+            # Protocol: Process the "GUESS" action
+            if msg["type"] == "GUESS":
+                row, col, letter = msg["row"], msg["col"], msg["letter"]
+                # Update authoritative state
+                if grid[row][col] != EMPTY:
+                    continue
+                
+                # If user guesses correctly
+                if crossword_sol[row][col] == letter:
+                    grid[row][col] = letter
+                    scores[turn] += 1
 
-                # update both players
-                for conn in [conn_p1, conn_p2] :
-                    send(conn, {"type" : "UPDATE", "row" : row, "col": col, "letter" : letter})
+                    # update both players
+                    for conn in [conn_p1, conn_p2] :
+                        send(conn, {"type" : "UPDATE", "row" : row, "col": col, "letter" : letter})
+            else:
+                send(active_socket, {
+                    "type": "ERROR",
+                    "message": "Incorrect letter! Try again."
+                })
 
             # Check for game status, are there empty cells 
             #           or is grid complete (aka game over)
@@ -149,11 +179,6 @@ def game_session(conn_p1, conn_p2):
                 turn = 1
             for conn in [conn_p1, conn_p2] :
                 send(conn, {"type" : "TURN", "player": turn})
-        else :
-            send(active_socket, {
-                "type": "ERROR",
-                "message": "Incorrect letter! Try again."
-            })
     # Safely close the sockets when the session ends
     print("SESSION END Closing sockets safely, session has ended")
     conn_p1.close()

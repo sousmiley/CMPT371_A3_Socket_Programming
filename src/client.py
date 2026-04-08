@@ -59,6 +59,7 @@ class Crossword:
         self.root.mainloop()
 
     def on_close(self):
+        self.running = False
         try:
             if self.client:
                 try:
@@ -208,6 +209,20 @@ class Crossword:
                     
                     elif msg["type"] == "ERROR":
                         self.status_label.config(text=msg["message"])
+
+                    elif msg["type"] == "DISCONNECTED":
+                        print(msg['message'])
+                        print("Opponent left. Closing game...")
+                        self.running = False
+
+                        # close the socket
+                        try:
+                            self.client.shutdown(socket.SHUT_RDWR)
+                        except:
+                            pass
+                        self.client.close()
+                        self.root.after(0, self.on_close)
+                        return
 
                     elif msg["type"] == "GAME_END":
                         # TODO: Ipmrove the results popup window
