@@ -1,9 +1,8 @@
-# **CMPT 371 A3 Socket Programming - Multiplayer Crossword `Name`**
+# **CMPT 371 A3 Socket Programming `Multiplayer Crossword`**
 
 **Course:** CMPT 371 \- Data Communications & Networking  
 **Instructor:** Mirza Zaeem Baig  
-**Semester:** Spring 2026  
-<span style="color: purple;">**_RUBRIC NOTE: As per submission guidelines, only one group member will submit the link to this repository on Canvas._**
+**Semester:** Spring 2026
 
 ## **Group Members**
 
@@ -38,9 +37,8 @@ As required by the project specifications, we have identified and handled (or de
 
 ## **3\. Video Demo**
 
-<span style="color: purple;">**_RUBRIC NOTE: Include a clickable link._**</span>  
 Our 2-minute video demonstration covering connection establishment, data exchange, real-time gameplay, and process termination can be viewed below:  
-[**▶️ Watch Project Demo on YouTube**](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+[**▶️ Watch Project Demo on YouTube**](https://drive.google.com/file/d/1SX3e5i3Sqg7BRqfhs6-HHow1NJzrePf9/view)
 
 ## **4\. Prerequisites (Fresh Environment)**
 
@@ -50,11 +48,7 @@ To run this project, you need:
 - No external pip installations are required (uses standard socket, threading, json, sys libraries).
 - (Optional) VS Code or Terminal.
 
-<span style="color: purple;">**_RUBRIC NOTE: No external libraries are required. Therefore, a requirements.txt file is not strictly necessary for dependency installation, though one might be included for environment completeness._**</span>
-
 ## **4\. Step-by-Step Run Guide**
-
-<span style="color: purple;">**_RUBRIC NOTE: The grader must be able to copy-paste these commands._**</span>
 
 ### **Step 1: Start the Server**
 
@@ -71,7 +65,6 @@ Open a **new** terminal window (keep the server running). Run the client script 
 
 ```bash
 python client.py
-# Console output: "Connected. Waiting for opponent..."
 ```
 
 ### **Step 3: Connect Player 2**
@@ -80,8 +73,6 @@ Open a **third** terminal window. Run the client script again to start the secon
 
 ```bash
 python client.py
-# Console output: "Connected. Waiting for opponent..."
-# Console output: "Match found! You are Player O."
 ```
 
 ### **Step 4: Gameplay**
@@ -116,8 +107,6 @@ We designed a custom application-layer protocol for data exchange usin JSON over
 
 ## **6\. Academic Integrity & References**
 
-<span style="color: purple;">**_RUBRIC NOTE: List all references used and help you got. Below is an example._**</span>
-
 - **Code Origin:**
   - The socket boilerplate was adapted from the course tutorial "TCP Echo Server". The core multithreaded game logic, protocol, and state management were written by the group.
 - **References:**
@@ -127,4 +116,4 @@ We designed a custom application-layer protocol for data exchange usin JSON over
   - [Threading in Python](https://docs.python.org/3/library/threading.html)
   - [python sockets multiple messages on same connection](https://stackoverflow.com/questions/42222425/python-sockets-multiple-messages-on-same-connection)
   - [How to Send and Receive JSON Data over IPv4 Sockets in Python](https://oneuptime.com/blog/post/2026-03-20-json-over-ipv4-sockets-python/view)
-  - [Beej's Guide to Network Programming](https://beej.us/guide/bgnet3/html/#close-and-shutdownget-outta-my-face)
+  - [Beej's Guide to Network Programming](https://beej.us/guide/bgnet3/html/#close-and-shutdownget-outta-my-face) -[Socket Programming in Python (Guide)](https://realpython.com/python-sockets/)
