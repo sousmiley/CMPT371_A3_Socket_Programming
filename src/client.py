@@ -26,7 +26,7 @@ class Crossword:
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.client.connect((HOST, PORT))
-            self.client.sendall("CONNECT\n".encode())
+            self.client.sendall((json.dumps({"type": "CONNECT"}) + '\n').encode('utf-8'))
         except Exception as e:
             print("Unable to connect to server ", e)
             return
@@ -135,8 +135,8 @@ class Crossword:
 
         # Users attempt to guess a letter
         try:
-            message = f"GUESS {self.selected_row} {self.selected_col} {letter}\n"
-            self.client.send(message.encode())
+            message = json.dumps({"type": "UPDATE", "row": self.selected_row, "col": self.selected_col, "letter": letter}) + '\n'
+            self.client.sendall(message.encode('utf-8'))
             # clear input box after sending
             self.entry.delete(0, tk.END)
         except:
@@ -146,7 +146,7 @@ class Crossword:
         while True:
             try:
                 # Await data broadcasted from the GameSession server thread
-                data = self.client.recv(1024).decode()
+                data = self.client.recv(1024).decode('utf-8')
 
                 # TCP STREAM BUFFERING FIX:
                 # OS-level TCP buffers might combine multiple JSON packets into one string.
@@ -157,171 +157,86 @@ class Crossword:
                     if not msg: break
 
                     #Deserialize the JSON packet
-                    # msg = json.loads(msg)
+                    msg = json.loads(msg)
                     
                     # Action: Waiting for another opponent to join
-                    if msg.startswith("WAIT"):
+                    if msg["type"] == "WAIT":
                         self.status_label.config(text=f"Connected! Waiting for opponents to join...")
 
                     # Action: Initial Role Assignment
-                    elif msg.startswith("WELCOME"):
+                    elif msg["type"] == "WELCOME":
                         print("Received WELCOME")
-                        parts = msg.split()
-                        if len(parts) >= 2:
-                            player_number_string = parts[1]   # get the second part
-                            self.player_num = int(player_number_string)  # convert to integer
-                            # Determine if it's this player's turn
-                            if self.player_num == 1:
-                                # Player 1 always starts first
-                                self.my_turn = True
-                            else:
-                                self.my_turn = False
-                            # Update UI to reflect player + turn
-                            self.update_status()
-                        else:
-                            print("ERROR: Incorrect formatted WELCOME message :", msg)
+                        self.player_num = int(msg["player"])
+                        self.my_turn = (self.player_num == 1)
+                        self.update_status()
+                        # parts = msg.split()
+                        # if len(parts) >= 2:
+                        #     player_number_string = parts[1]   # get the second part
+                        #     self.player_num = int(player_number_string)  # convert to integer
+                        #     # Determine if it's this player's turn
+                        #     if self.player_num == 1:
+                        #         # Player 1 always starts first
+                        #         self.my_turn = True
+                        #     else:
+                        #         self.my_turn = False
+                        #     # Update UI to reflect player + turn
+                        #     self.update_status()
+                        # else:
+                        #     print("ERROR: Incorrect formatted WELCOME message :", msg)
 
                     # Action: Game Start
-                    elif msg.startswith("START"):
+                    elif msg["type"] == "START":
                         self.status_label.config(text=f"Game started! You are Player {self.player_num}")
                         self.update_status()
                     
                     # Action: Show clues
                     # TODO: implement clues properly, doesn't show down clues seperately
-                    elif msg.startswith("CLUES"):
-                        _, clues_str = msg.split(maxsplit=1)
+                    elif msg["type"] == "CLUES":
+                        clues_str = msg["clues"]
                         self.clues = clues_str.split("|")
                         self.update_clue()
 
                     # Action: Game state Update
-                    elif msg.startswith("GUESS"):
-                        parts = msg.split()
-                        row = int(parts[1])
-                        col = int(parts[2])
-                        letter = parts[3]
+                    elif msg["type"] == "UPDATE":
+                        row = msg['row']
+                        col = msg['col']
+                        letter = msg['letter']
                         self.grid_buttons[row][col].config(text = letter)
 
                     # Action: Change turn and update who turn it is
-                    elif msg.startswith("TURN"):
-                        turn_player = int(msg.split()[1])
+                    elif msg["type"] == "TURN":
+                        turn_player = msg['player']
                         self.my_turn = (turn_player == self.player_num)
                         self.update_status()
 
                     # Action: Game end and notify users
-                    elif msg.startswith("GAME_END"):
-                        print("Received Game over")
-                        parts = msg.split()
-                        if len(parts) >= 3:
-                            score1_str = parts[1] # get score1 as string
-                            score2_str = parts[2] # get score2 as string
+                    elif msg["type"] == "GAME_END":
+                        # Convert scores from str -> int
+                        score1 = int(msg['player1_score'])
+                        score2 = int(msg['player2_score'])
 
-                            # Convert scores from str -> int
-                            score1 = int(score1_str)
-                            score2 = int(score2_str)
+                        if score1 > score2:
+                            winner = "Player 1"
+                        elif score2 > score1:
+                            winner = "Player 2"
+                        else:
+                            winner = "Tie"
 
-                            if score1 > score2:
-                                winner = "Player 1"
-                            elif score2 > score1:
-                                winner = "Player 2"
-                            else:
-                                winner = "Tie"
-
-                            # TODO: Ipmrove the results popup window
-                            messagebox.showinfo(
+                        # TODO: Ipmrove the results popup window
+                        messagebox.showinfo(
                                 "Game Over!",
                                 "Scores:\n"
                                 + "Player 1: " + str(score1) + "\n"
                                 + "Player 2: " + str(score2) + "\n"
                                 + "Winner: " + winner + ", congrats!"
                             )
-                            # TODO : Game doesn't close after user closes game over window
-                            self.root.destroy() 
-
-                        else:
-                            print("WARNING: Incorrect formatted GAME_END message :", msg)
-
             except Exception as e:
                 print("Error:", e)
                 break
 
+        # Close the connect and destroy the window
+        self.client.close()
+        self.root.destroy() 
+
 if __name__ == "__main__":
     Crossword()
-
-# def print_board(board):
-#     """
-#     Displays the board with coordinates and clean Unicode box-drawing characters.
-#     """
-#     # Column headers
-#     print("\n    0   1   2 ")
-#     print("  ┌───┬───┬───┐")
-    
-#     for i, row in enumerate(board):
-#         # Row data with the row index on the left
-#         print(f"{i} │ {row[0]} │ {row[1]} │ {row[2]} │")
-        
-#         # Row separators or the bottom border
-#         if i < 2:
-#             print("  ├───┼───┼───┤")
-#         else:
-#             print("  └───┴───┴───┘\n")
-
-# def start_client():
-#     """
-#     Main client execution loop. Handles connection, JSON serialization/deserialization,
-#     and user input routing.
-#     """
-#     # Initialize an IPv4 (AF_INET) TCP (SOCK_STREAM) socket
-#     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#     client.connect((HOST, PORT))
-    
-#     # Handshake Protocol: Send initial connection request to join matchmaking
-#     client.sendall(json.dumps({"type": "CONNECT"}).encode('utf-8'))
-#     print("Connected. Waiting for opponent...")
-    
-#     my_role = None
-    
-#     while True:
-#         # Await data broadcasted from the GameSession server thread
-#         data = client.recv(1024).decode('utf-8')
-            
-#         # TCP STREAM BUFFERING FIX:
-#         # OS-level TCP buffers might combine multiple JSON packets into one string.
-#         # We split by the predefined '\n' boundary to process them sequentially.
-#         for chunk in data.strip().split('\n'):
-#             if not chunk: continue
-#             # Deserialize the JSON packet
-#             msg = json.loads(chunk)
-            
-#             # Action: Initial Role Assignment
-#             if msg["type"] == "WELCOME":
-#                 # Payload format is "Player X" or "Player O"
-#                 my_role = msg["payload"][-1]
-#                 print(f"Match found! You are Player {my_role}.")
-                
-#             # Action: Game State Update
-#             elif msg["type"] == "UPDATE":
-#                 print_board(msg["board"])
-                
-#                 # Check for termination conditions broadcasted by the server
-#                 if msg["status"] != "ongoing":
-#                     print(f"Game Over: {msg['status']}")
-#                     client.close()
-#                     sys.exit(0)
-                    
-#                 # Print whose turn it is
-#                 if msg["turn"] == my_role:
-#                     print("It's your turn!")
-#                     # State Validation: Prompt for input only if the server says it is our turn
-#                     r_str, c_str = input("Enter row and col (e.g., '1 1'): ").split()
-                    
-#                     # Protocol: Package coordinates into a MOVE packet.
-#                     # Always append the \n boundary before encoding to bytes.
-#                     move_msg = json.dumps({"type": "MOVE", "row": int(r_str), "col": int(c_str)}) + '\n'
-#                     client.sendall(move_msg.encode('utf-8'))
-#                 else:
-#                     print("Waiting for opponent...")
-
-#     client.close()
-
-# if __name__ == "__main__":
-#     start_client()

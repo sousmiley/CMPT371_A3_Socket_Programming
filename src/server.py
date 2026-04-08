@@ -5,6 +5,7 @@ References:
 Socket boilerplate adapted from "TCP Echo Server" tutorial.
 """
 
+import json
 import socket
 import threading
 
@@ -50,8 +51,8 @@ def game_session(conn_p1, conn_p2):
     """
     # Protocol: Assign roles using the "WELCOME" message.
     # Note: \n is appended to act as a TCP message boundary.
-    conn_p1.sendall("WELCOME 1\n".encode())
-    conn_p2.sendall("WELCOME 2\n".encode())
+    conn_p1.sendall((json.dumps({"type": "WELCOME", "player": 1}) + '\n').encode('utf-8'))
+    conn_p2.sendall((json.dumps({"type": "WELCOME", "player": 2}) + '\n').encode('utf-8'))
     
     # Initialize the game state
     grid = []
@@ -68,7 +69,7 @@ def game_session(conn_p1, conn_p2):
     turn = 1 # Player 1 goes first
     
     # Broadcast clues to both players
-    crossword_clues_msg = "CLUES  " + "|".join(crossword_clues) + "\n"
+    crossword_clues_msg = json.dumps({"type": "CLUES", "clues": "|".join(crossword_clues)}) + '\n'
 
     conn_p1.sendall(crossword_clues_msg.encode('utf-8'))
     conn_p2.sendall(crossword_clues_msg.encode('utf-8'))
@@ -78,8 +79,8 @@ def game_session(conn_p1, conn_p2):
         conn_p1.sendall((msg + "\n").encode())
         conn_p2.sendall((msg + "\n").encode())
     
-    broadcast_message("START")
-    broadcast_message("TURN 1")
+    broadcast_message(json.dumps({"type": "START"}))
+    broadcast_message(json.dumps({"type": "TURN", "player": 1}))
 
     # Map roles to their respective socket objects
     sockets = {1: conn_p1, 2: conn_p2}
@@ -97,19 +98,18 @@ def game_session(conn_p1, conn_p2):
         # If multiple messages arrive buffered together in the TCP stream, 
         # we only process the first valid one using the \n boundary.
         message = data.strip().split('\n')[0]
-        msg = message.split()
+        msg = json.loads(message)
         
         # Protocol: Process the "GUESS" action
-        if msg[0] == "GUESS":
-            print("INSIDE GUESS")
+        if msg['type'] == "UPDATE":
             # This matches the : {“type”: “GUESS”, “row”: 1, “col”: 2, “letter”: “A”}
-            row, col, letter = int(msg[1]), int(msg[2]), msg[3].upper()
+            row, col, letter = int(msg['row']), int(msg['col']), msg['letter'].upper()
             # Update authoritative state
             if grid[row][col] != EMPTY:
                 active_socket.sendall("INVALID Cell already filled\n".encode())
                 continue
-            print(letter)
-
+            
+            # If user guesses correctly
             if crossword_sol[row][col] == letter:
                 grid[row][col] = letter
                 # How we measure score can be changed
@@ -117,8 +117,11 @@ def game_session(conn_p1, conn_p2):
                 scores[turn] += 1
 
                 # update both players
-                # {“type”: “UPDATE”, “row”: 1, “col”: 2, “letter”: A}
-                broadcast_message(f"GUESS {row} {col} {letter}")
+                # {“type”: “UPDATE”, “row”: 1, “col”: 2, “letter”: A} --> f"GUESS {row} {col} {letter}"
+                broadcast_message({"type": "UPDATE", "row": row, "col": col, "letter": letter})
+            else:
+                # Notify users if they guess wrong
+                broadcast_message()
 
             # Check for game status, are there empty cells 
             #           or is grid complete (aka game over)
@@ -132,9 +135,10 @@ def game_session(conn_p1, conn_p2):
                 if not all_filled:
                     break                  # stop checking the grid
 
-            # if grid has no empty cells, the game is finhised
+            # if grid has no empty cells, the game is finished
+            # f"GAME_END {scores[1]} {scores[2]}"
             if all_filled:
-                broadcast_message(f"GAME_END {scores[1]} {scores[2]}")
+                broadcast_message(json.dumps({"type": "GAME_END", "player1_score": scores[1], "player2_score": scores[2]}) + '\n')
                 break
 
             # switch player's turns
@@ -145,7 +149,6 @@ def game_session(conn_p1, conn_p2):
             broadcast_message(f"TURN {turn}")
         else :
             active_socket.sendall("ERROR Invalid Move! Try again\n".encode())
-            print("INVALID")
     # Safely close the sockets when the session ends
     print("SESSION END Closing sockets safely, session has ended")
     conn_p1.close()
@@ -169,17 +172,16 @@ def start_server():
             print(f"[CONNECTED] {addr}")
             data = conn.recv(1024).decode('utf-8')
             
-            # Protocol: Check for the initial "CONNECT" handshake
-            conn.sendall("CONNECTED\n".encode())
 
             try:
                 if "CONNECT" in data:
+                    # Add the client to the matchmaking queue
                     matchmaking_queue.append(conn)
                     print(f"[QUEUE] Player added. Waiting # of players : {NUM_PLAYERS - len(matchmaking_queue)}")
 
                     #Protocol: "WAIT" for opponent when only 1 player is in the queue
                     if len(matchmaking_queue) == 1:
-                        conn.sendall("WAIT\n".encode())
+                        conn.sendall((json.dumps({"type": "WAIT"}) + '\n').encode('utf-8'))
                     
                     # Session Management: When 2 players are queued, match them up
                     if len(matchmaking_queue) >= 2:
@@ -189,7 +191,7 @@ def start_server():
                         print("[MATCH] 2 Players found. Starting new game session.")
                         threading.Thread(target=game_session, args=(player_1, player_2)).start()
                 else:
-                    raise ValueError("ERROR! Wrong type. Require CONNECT to start the session.")
+                    raise ValueError("ERROR! Invalid handshake.")
             except Exception:
                 # Send error when it's not CONNECTED
                 conn.sendall("ERROR! Invalid handshake\n".encode())
