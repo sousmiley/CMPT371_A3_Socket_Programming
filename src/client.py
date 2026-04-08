@@ -64,7 +64,7 @@ class Crossword:
 
         # Server variables
         self.running = True
-        self.thread = threading.Thread(target=self.start_client)
+        self.thread = threading.Thread(target=self.start_client, daemon = True)
         self.thread.start()
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -278,6 +278,7 @@ class Crossword:
                         messagebox.showinfo("Game Over!", 
                             f"Scores:\nPlayer 1: {score1}\nPlayer 2: {score2}\nWinner: {winner}, congrats!"
                         )
+                        
                         self.root.destroy() 
 
             except Exception as e:
