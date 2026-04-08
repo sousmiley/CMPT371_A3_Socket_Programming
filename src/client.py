@@ -144,6 +144,7 @@ class Crossword:
 
         # If users don't select any cells
         if self.selected_row is None or self.selected_col is None:
+            self.status_label.config(text="Select a cell first!")
             return
 
         #Check if it's only 1 character and letter only
