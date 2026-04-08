@@ -118,10 +118,12 @@ class Crossword:
             )
 
     def send_move(self):
+        # If it's opponent turn, display the text
         if not self.my_turn:
             self.status_label.config(text="Not your turn!")
             return
 
+        # If users don't select any cells
         if self.selected_row is None or self.selected_col is None:
             return
 
@@ -130,15 +132,13 @@ class Crossword:
         if len(letter) > 1 or not letter.isalpha() or letter == "":
             self.status_label.config(text="Invalid guess! Please type only 1 letter")
             return
-    
-        print("INSIDE send_move: ", letter)
 
+        # Users attempt to guess a letter
         try:
             message = f"GUESS {self.selected_row} {self.selected_col} {letter}\n"
             self.client.send(message.encode())
             # clear input box after sending
             self.entry.delete(0, tk.END)
-
         except:
             self.status_label.config(text = "Failed to send move")
 
@@ -194,8 +194,7 @@ class Crossword:
                         self.update_clue()
 
                     # Action: Game state Update
-                    elif msg.startswith("UPDATE"):
-                        print("INSIDE UPDATE")
+                    elif msg.startswith("GUESS"):
                         parts = msg.split()
                         row = int(parts[1])
                         col = int(parts[2])

@@ -101,12 +101,14 @@ def game_session(conn_p1, conn_p2):
         
         # Protocol: Process the "GUESS" action
         if msg[0] == "GUESS":
+            print("INSIDE GUESS")
             # This matches the : {“type”: “GUESS”, “row”: 1, “col”: 2, “letter”: “A”}
             row, col, letter = int(msg[1]), int(msg[2]), msg[3].upper()
             # Update authoritative state
             if grid[row][col] != EMPTY:
                 active_socket.sendall("INVALID Cell already filled\n".encode())
                 continue
+            print(letter)
 
             if crossword_sol[row][col] == letter:
                 grid[row][col] = letter
@@ -116,33 +118,34 @@ def game_session(conn_p1, conn_p2):
 
                 # update both players
                 # {“type”: “UPDATE”, “row”: 1, “col”: 2, “letter”: A}
-                broadcast_message(f"UPDATE {row} {col} {letter}")
+                broadcast_message(f"GUESS {row} {col} {letter}")
 
-                # Check for game status, are there empty cells 
-                #           or is grid complete (aka game over)
-                all_filled = True
-                for row in range(SIZE):          # go through each row
-                    for col in range(SIZE):      # go through each column
-                        if grid[row][col] == EMPTY:  # an empty cell was located
-                            all_filled = False
-                            break              # stop checking row
+            # Check for game status, are there empty cells 
+            #           or is grid complete (aka game over)
+            all_filled = True
+            for row in range(SIZE):          # go through each row
+                for col in range(SIZE):      # go through each column
+                    if grid[row][col] == EMPTY:  # an empty cell was located
+                        all_filled = False
+                        break              # stop checking row
 
-                    if not all_filled:
-                        break                  # stop checking the grid
+                if not all_filled:
+                    break                  # stop checking the grid
 
-                # if grid has no empty cells, the game is finhised
-                if all_filled:
-                    broadcast_message(f"GAME_END {scores[1]} {scores[2]}")
-                    break
+            # if grid has no empty cells, the game is finhised
+            if all_filled:
+                broadcast_message(f"GAME_END {scores[1]} {scores[2]}")
+                break
 
-                # switch player's turns
-                if turn == 1: #p1 -> p2
-                    turn = 2
-                else: # p2->p1
-                    turn = 1
-                broadcast_message(f"TURN {turn}")
-            else :
-                active_socket.sendall("ERROR Invalid Move! Try again\n".encode())
+            # switch player's turns
+            if turn == 1: #p1 -> p2
+                turn = 2
+            else: # p2->p1
+                turn = 1
+            broadcast_message(f"TURN {turn}")
+        else :
+            active_socket.sendall("ERROR Invalid Move! Try again\n".encode())
+            print("INVALID")
     # Safely close the sockets when the session ends
     print("SESSION END Closing sockets safely, session has ended")
     conn_p1.close()
