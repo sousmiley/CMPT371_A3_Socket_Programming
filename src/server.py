@@ -122,38 +122,38 @@ def game_session(conn_p1, conn_p2):
                 for conn in [conn_p1, conn_p2] :
                     send(conn, {"type" : "UPDATE", "row" : row, "col": col, "letter" : letter})
 
-                # Check for game status, are there empty cells 
-                #           or is grid complete (aka game over)
-                all_filled = True
-                for row in range(SIZE):
-                    for col in range(SIZE):
-                        if grid[row][col] == EMPTY:
-                            all_filled = False
-                            break
-                    if not all_filled:
+            # Check for game status, are there empty cells 
+            #           or is grid complete (aka game over)
+            all_filled = True
+            for row in range(SIZE):
+                for col in range(SIZE):
+                    if grid[row][col] == EMPTY:
+                        all_filled = False
                         break
+                if not all_filled:
+                    break
 
-                if all_filled:
-                    for conn in [conn_p1, conn_p2]:
-                        send(conn, {
-                            "type": "GAME_END",
-                            "scores": {"1": scores[1], "2": scores[2]}
-                            }
-                        )
-                    return
+            if all_filled:
+                for conn in [conn_p1, conn_p2]:
+                    send(conn, {
+                        "type": "GAME_END",
+                        "scores": {"1": scores[1], "2": scores[2]}
+                        }
+                    )
+                return
 
-                # switch player's turns
-                if turn == 1: #p1 -> p2
-                    turn = 2
-                else: # p2->p1
-                    turn = 1
-                for conn in [conn_p1, conn_p2] :
-                    send(conn, {"type" : "TURN", "player": turn})
-            else :
-                send(active_socket, {
-                    "type": "ERROR",
-                    "message": "Incorrect letter! Try again."
-                })
+            # switch player's turns
+            if turn == 1: #p1 -> p2
+                turn = 2
+            else: # p2->p1
+                turn = 1
+            for conn in [conn_p1, conn_p2] :
+                send(conn, {"type" : "TURN", "player": turn})
+        else :
+            send(active_socket, {
+                "type": "ERROR",
+                "message": "Incorrect letter! Try again."
+            })
     # Safely close the sockets when the session ends
     print("SESSION END Closing sockets safely, session has ended")
     conn_p1.close()
