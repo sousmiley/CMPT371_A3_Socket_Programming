@@ -147,6 +147,7 @@ class Crossword:
             try:
                 # Await data broadcasted from the GameSession server thread
                 data = self.client.recv(1024).decode('utf-8')
+                if not data: continue
 
                 # TCP STREAM BUFFERING FIX:
                 # OS-level TCP buffers might combine multiple JSON packets into one string.
@@ -194,6 +195,10 @@ class Crossword:
                         turn_player = msg['player']
                         self.my_turn = (turn_player == self.player_num)
                         self.update_status()
+
+                    # Action: Notify the incorrect guess
+                    elif msg["type"] == "ERROR":
+                        self.status_label.config(text=msg['message'])
 
                     # Action: Game end and notify users
                     elif msg["type"] == "GAME_END":

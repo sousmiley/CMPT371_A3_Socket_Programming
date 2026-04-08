@@ -98,6 +98,7 @@ def game_session(conn_p1, conn_p2):
         # If multiple messages arrive buffered together in the TCP stream, 
         # we only process the first valid one using the \n boundary.
         message = data.strip().split('\n')[0]
+        if not message: break
         msg = json.loads(message)
         
         # Protocol: Process the "UPDATE" action
@@ -106,7 +107,7 @@ def game_session(conn_p1, conn_p2):
             row, col, letter = int(msg['row']), int(msg['col']), msg['letter'].upper()
             # Update authoritative state
             if grid[row][col] != EMPTY:
-                active_socket.sendall("INVALID Cell already filled\n".encode())
+                active_socket.sendall((json.dumps({"type": "ERROR", "message": "Invalid move! Cell already filled"}) + '\n').encode('utf-8'))
                 continue
             
             # If user guesses correctly
@@ -147,7 +148,8 @@ def game_session(conn_p1, conn_p2):
                 turn = 1
             broadcast_message({"type": "TURN", "player": turn})
         else :
-            active_socket.sendall("ERROR Invalid Move! Try again\n".encode())
+            active_socket.sendall(json.dumps({"type": "ERROR", "message": "Invalid move! Try again"}) + '\n').encode('utf-8')
+            continue
     # Safely close the sockets when the session ends
     print("SESSION END Closing sockets safely, session has ended")
     conn_p1.close()
@@ -169,31 +171,28 @@ def start_server():
             # Block until a new client connects
             conn, addr = server.accept()
             print(f"[CONNECTED] {addr}")
-            data = conn.recv(1024).decode('utf-8')
-            
 
+            # Start the handshake process
             try:
-                if "CONNECT" in data:
+                data = conn.recv(1024).decode('utf-8')
+                first_line = data.strip().split('\n')[0]
+                msg = json.loads(first_line)
+                if msg['type'] == "CONNECT":
                     # Add the client to the matchmaking queue
                     matchmaking_queue.append(conn)
                     print(f"[QUEUE] Player added. Waiting # of players : {NUM_PLAYERS - len(matchmaking_queue)}")
-
-                    #Protocol: "WAIT" for opponent when only 1 player is in the queue
+                    
+                    # Protocol: "WAIT" for opponent when only 1 player is in the queue
                     if len(matchmaking_queue) == 1:
                         conn.sendall((json.dumps({"type": "WAIT"}) + '\n').encode('utf-8'))
-                    
-                    # Session Management: When 2 players are queued, match them up
-                    if len(matchmaking_queue) >= 2:
+                    elif len(matchmaking_queue) >= 2:
                         player_1 = matchmaking_queue.pop(0)
                         player_2 = matchmaking_queue.pop(0)
                         # Spawn an isolated GameSession thread for the matched pair
                         print("[MATCH] 2 Players found. Starting new game session.")
                         threading.Thread(target=game_session, args=(player_1, player_2)).start()
-                else:
-                    raise ValueError("ERROR! Invalid handshake.")
-            except Exception:
-                # Send error when it's not CONNECTED
-                conn.sendall("ERROR! Invalid handshake\n".encode())
+            except Exception: # Invalid handshake
+                conn.sendall(json.dumps({"type": "ERROR", "message": "Invalid handshake"} + '\n').encode('utf-8'))
                 conn.close()
     except KeyboardInterrupt:
         # Graceful shutdown on Ctrl+C
