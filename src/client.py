@@ -5,6 +5,8 @@ References:
 https://stackoverflow.com/questions/16332224/placing-a-crossword-puzzle-into-a-tkiner-in-python-3-2
 https://docs.python.org/3/library/threading.html
 https://stackoverflow.com/questions/42222425/python-sockets-multiple-messages-on-same-connection
+https://oneuptime.com/blog/post/2026-03-20-json-over-ipv4-sockets-python/view
+https://beej.us/guide/bgnet/html/#close-and-shutdownget-outta-my-face
 """
 
 import json
@@ -12,6 +14,7 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import messagebox
+import json
 
 HOST = '127.0.0.1'
 PORT = 5050
@@ -20,15 +23,19 @@ SIZE = 5
 EMPTY = '_'
 
 class Crossword:
+    def send_json(self, data):
+        self.client.sendall((json.dumps(data) + "\n").encode())
+
     def __init__(self):
         # intialize the client by:
         # connecting to server, building gui, threading
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.client.connect((HOST, PORT))
-            self.client.sendall((json.dumps({"type": "CONNECT"}) + '\n').encode('utf-8'))
-        except Exception as e:
-            print("Unable to connect to server ", e)
+            # TODO: a proper handshake
+            self.send_json({"type": "CONNECT"})
+        except:
+            print("Unable to connect to server")
             return
         
         # game vars
@@ -36,7 +43,6 @@ class Crossword:
         self.my_turn = False
         self.selected_row = None
         self.selected_col = None
-        # TODO : present clues
         self.clues = [""] *SIZE
         #tkinter vars
         self.root = tk.Tk()
@@ -45,13 +51,30 @@ class Crossword:
         self.build_grid()
         self.build_controls()
         # receive messages, ref:https://docs.python.org/3/library/threading.html
-        threader = threading.Thread(target=self.start_client)
-        threader.start()
+        self.running = True
+        self.threader = threading.Thread(target=self.start_client)
+        self.threader.start()
 
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close) # for when game window closes
         self.root.mainloop()
-    
+
+    def on_close(self):
+        try:
+            if self.client:
+                try:
+                    # shutdown() affects all copies of the socket
+                    self.client.shutdown(socket.SHUT_WR) # no more writes
+                except :
+                    pass
+                self.client.close() # releases socket
+                # socket may not be immediately reusable
+        finally:
+            self.root.destroy()
+
     def build_grid(self):
-        # crossword grid using buttons
+        """ 
+        Function builds crossword grid GUI using Tkinter. 
+        """
         for row in range(SIZE):
             current_row = []
             for col in range(SIZE):
@@ -94,13 +117,8 @@ class Crossword:
     def select_cell(self, row, col):
         self.selected_row = row
         self.selected_col = col
-        self.update_clue_display()
+        self.update_clue()
         self.update_status() # update player status, current selected cell
-
-    def update_clue_display(self):
-        if self.selected_row is not None:
-            clue_text = self.clues[self.selected_row]
-            self.clue_label.config(text=f"Clue : {clue_text}")
 
     def update_status(self):
         if self.my_turn:
@@ -120,7 +138,7 @@ class Crossword:
     def send_move(self):
         # If it's opponent turn, display the text
         if not self.my_turn:
-            self.status_label.config(text="Not your turn!")
+            self.status_label.config(text = "Not your turn!")
             return
 
         # If users don't select any cells
@@ -132,40 +150,37 @@ class Crossword:
         if len(letter) > 1 or not letter.isalpha() or letter == "":
             self.status_label.config(text="Invalid guess! Please type only 1 letter")
             return
-
-        # Users attempt to guess a letter
-        try:
-            message = json.dumps({"type": "UPDATE", "row": self.selected_row, "col": self.selected_col, "letter": letter}) + '\n'
-            self.client.sendall(message.encode('utf-8'))
-            # clear input box after sending
-            self.entry.delete(0, tk.END)
-        except:
-            self.status_label.config(text = "Failed to send move")
+        
+        self.send_json({
+            "type": "GUESS",
+            "row": self.selected_row,
+            "col": self.selected_col,
+            "letter": letter
+        })
+        # clear input box after sending
+        self.entry.delete(0, tk.END)
 
     def start_client(self):
         while True:
             try:
                 # Await data broadcasted from the GameSession server thread
-                data = self.client.recv(1024).decode('utf-8')
-                if not data: continue
+                data = self.client.recv(1024).decode()
+                if not data:
+                    print("[INFO] Server closed connection")
+                    break
 
                 # TCP STREAM BUFFERING FIX:
                 # OS-level TCP buffers might combine multiple JSON packets into one string.
                 # We split by the predefined '\n' boundary to process them sequentially.
-                # handle multiple messages
-                messages = data.strip().split("\n")
-                for msg in messages:
-                    if not msg: break
+                messages = data.split("\n")
+                for msg_str in messages:
+                    msg_str = msg_str.strip()
+                    if not msg_str:
+                        continue
+                    msg = json.loads(msg_str)
 
-                    #Deserialize the JSON packet
-                    msg = json.loads(msg)
-                    
-                    # Action: Waiting for another opponent to join
-                    if msg["type"] == "WAIT":
-                        self.status_label.config(text=f"Connected! Waiting for opponents to join...")
-
-                    # Action: Initial Role Assignment
-                    elif msg["type"] == "WELCOME":
+                    #TODO : encapsulate this if loop logic to a seperate function
+                    if msg["type"] == "WELCOME":
                         print("Received WELCOME")
                         self.player_num = int(msg["player"])
                         self.my_turn = (self.player_num == 1)
@@ -179,50 +194,41 @@ class Crossword:
                     # Action: Show clues
                     # TODO: implement clues properly, doesn't show down clues seperately
                     elif msg["type"] == "CLUES":
-                        clues_str = msg["clues"]
-                        self.clues = clues_str.split("|")
+                        self.clues = msg["clues"]
                         self.update_clue()
 
-                    # Action: Game state Update
                     elif msg["type"] == "UPDATE":
-                        row = msg['row']
-                        col = msg['col']
-                        letter = msg['letter']
-                        self.grid_buttons[row][col].config(text = letter)
+                        row= msg["row"]
+                        col = msg["col"]
+                        self.grid_buttons[row][col].config(text=msg["letter"])
 
-                    # Action: Change turn and update who turn it is
                     elif msg["type"] == "TURN":
-                        turn_player = msg['player']
-                        self.my_turn = (turn_player == self.player_num)
+                        self.my_turn = (msg["player"] == self.player_num)
                         self.update_status()
-
-                    # Action: Notify the incorrect guess
+                    
                     elif msg["type"] == "ERROR":
-                        self.status_label.config(text=msg['message'])
+                        self.status_label.config(text=msg["message"])
 
-                    # Action: Game end and notify users
                     elif msg["type"] == "GAME_END":
-                        # Convert scores from str -> int
-                        score1 = int(msg['player1_score'])
-                        score2 = int(msg['player2_score'])
-
+                        # TODO: Ipmrove the results popup window
+                        print("Received Game over")
+                        score1 = msg["scores"]["1"]
+                        score2 = msg["scores"]["2"]
                         if score1 > score2:
                             winner = "Player 1"
                         elif score2 > score1:
                             winner = "Player 2"
                         else:
                             winner = "Tie"
+                        
+                        messagebox.showinfo("Game Over!", 
+                            f"Scores:\nPlayer 1: {score1}\nPlayer 2: {score2}\nWinner: {winner}, congrats!"
+                        )
+                        self.root.destroy() 
 
-                        # TODO: Ipmrove the results popup window
-                        messagebox.showinfo(
-                                "Game Over!",
-                                "Scores:\n"
-                                + "Player 1: " + str(score1) + "\n"
-                                + "Player 2: " + str(score2) + "\n"
-                                + "Winner: " + winner + ", congrats!"
-                            )
             except Exception as e:
-                print("Error:", e)
+                if self.running:  # only report errors if we didn't intentionally close
+                    print("Error:", e)
                 break
 
         # Close the connect and destroy the window
