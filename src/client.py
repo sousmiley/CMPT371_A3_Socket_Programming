@@ -210,6 +210,9 @@ class Crossword:
                     
                     elif msg["type"] == "ERROR":
                         self.status_label.config(text=msg["message"])
+                    
+                    elif msg["type"] == "MESSAGE":
+                        self.status_label.config(text = msg["text"])
 
                     elif msg["type"] == "DISCONNECTED":
                         print(msg['message'])

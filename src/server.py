@@ -38,7 +38,11 @@ crossword_clues = [
 ]
 
 def send(conn, data):
-    conn.sendall((json.dumps(data) + "\n").encode())
+    try:
+        conn.sendall((json.dumps(data) + "\n").encode())
+        return True
+    except (BrokenPipeError, ConnectionResetError, OSError):
+        return False
 
 # def check_winner(board):
 #     """
@@ -93,8 +97,10 @@ def game_session(conn_p1, conn_p2):
     turn = 1 # Player 1 goes first
     
     for msg in [conn_p1,conn_p2]:
-        send(msg, {"type" : "CLUES", "clues" : crossword_clues})
-        send(msg, {"type" : "START"} )
+        if not send(conn, {"type": "CLUES", "clues": crossword_clues}):
+            return
+        if not send(conn, {"type": "START"}):
+            return
 
     send(conn_p1, {"type" : "TURN", "player":1})
     send(conn_p2, {"type" : "TURN", "player":1})
@@ -136,12 +142,21 @@ def game_session(conn_p1, conn_p2):
                 row, col, letter = msg["row"], msg["col"], msg["letter"]
                 # Update authoritative state
                 if grid[row][col] != EMPTY:
+                    send(active_socket, {
+                        "type": "ERROR",
+                        "message": "Cell already filled!"
+                    })
                     continue
                 
                 # If user guesses correctly
                 if crossword_sol[row][col] == letter:
                     grid[row][col] = letter
                     scores[turn] += 1
+  
+                    send(active_socket, {
+                        "type": "MESSAGE",
+                        "text": "Correct Guess!"
+                    })
 
                     # update both players
                     for conn in [conn_p1, conn_p2] :
@@ -165,8 +180,15 @@ def game_session(conn_p1, conn_p2):
 
             if all_filled:
                 for conn in [conn_p1, conn_p2]:
+                    if scores[1] > scores[2]:
+                        result = "Player 1 won!"
+                    elif scores[2] > scores[1]:
+                        result = "Player 2 won!"
+                    else:
+                        result = "Draw!"
                     send(conn, {
                         "type": "GAME_END",
+                        "result": result,
                         "scores": {"1": scores[1], "2": scores[2]}
                         }
                     )
